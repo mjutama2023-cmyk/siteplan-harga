@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Siteplan Perumahan</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,Arial,sans-serif}
+body{background:#f1f5f9;color:#0f172a}
+header{background:#0f766e;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+header h1{font-size:22px} header p{font-size:13px;opacity:.85}
+header button{width:auto;padding:8px 14px;background:#fff;color:#0f766e;font-size:14px}
+.wrap{display:flex;gap:16px;padding:16px;flex-wrap:wrap}
+.map{flex:2;min-width:320px;background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px #0002}
+.legend{display:flex;gap:14px;font-size:13px;margin-bottom:12px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.blok{margin-bottom:14px}
+.blok h3{font-size:14px;margin-bottom:6px;color:#0f766e}
+.road{height:18px;background:#94a3b8;border-radius:4px;text-align:center;font-size:11px;color:#fff;line-height:18px;margin:6px 0}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.k{width:64px;height:58px;border-radius:6px;border:2px solid transparent;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
+.k small{font-weight:400;font-size:10px}
+.k.tersedia{background:#bbf7d0;border-color:#16a34a;color:#14532d}
+.k.tersedia:hover{transform:scale(1.07);background:#86efac}
+.k.booking{background:#fde68a;border-color:#d97706;color:#78350f;cursor:not-allowed}
+.k.terjual{background:#fecaca;border-color:#dc2626;color:#7f1d1d;cursor:not-allowed}
+.k.aktif{outline:3px solid #0f766e}
+.detail{flex:1;min-width:300px;background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px #0002;align-self:flex-start}
+.detail img{width:100%;border-radius:10px;height:200px;object-fit:cover;background:#e2e8f0}
+.detail h2{margin:10px 0 4px}
+.info{font-size:14px;line-height:1.7;margin:8px 0}
+.harga{display:flex;gap:8px;margin:10px 0}
+.harga div{flex:1;background:#f0fdfa;border-radius:8px;padding:10px;font-size:12px}
+.harga b{display:block;font-size:16px;color:#0f766e}
+button{background:#0f766e;color:#fff;border:0;padding:12px;border-radius:8px;width:100%;font-size:15px;cursor:pointer}
+button:hover{opacity:.9}
+.empty{color:#64748b;text-align:center;padding:40px 10px;font-size:14px}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;padding:16px;overflow:auto;z-index:10}
+.modal.show{display:flex}
+.box{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:420px;max-height:92vh;overflow:auto}
+.box.lebar{max-width:880px}
+.box h2{margin-bottom:12px}
+.baris{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0;font-size:14px}
+label{display:block;font-size:13px;margin:10px 0 4px}
+select,input{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
+.hasil{background:#0f766e;color:#fff;border-radius:10px;padding:14px;margin-top:14px;text-align:center}
+.hasil b{display:block;font-size:24px}
+.abu{background:#64748b;margin-top:10px}
+.note{font-size:11px;color:#64748b;margin-top:8px}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tabs button{width:auto;padding:8px 14px;background:#e2e8f0;color:#0f172a;font-size:14px}
+.tabs button.on{background:#0f766e;color:#fff}
+.grid{display:grid;grid-template-columns:repeat);gap:10px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+.tbl th,.tbl td{border-bottom:1px solid #e2e8f0;padding:6px;text-align:left}
+.tbl th{background:#f1f5f9}
+.mini{width:auto;padding:5px 9px;font-size:12px;margin-right:4px}
+.merah{background:#dc2626}
+.fprev{max-width:140px;max-height:90px;border-radius:6px;margin-top:6px;display:block}
+.tbox{max-height:300px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <div><h1 id="jdl">🏡 Siteplan Perumahan</h1><p>Klik kavling hijau untuk melihat detail rumah dan simulasi KPR</p></div>
+  <button onclick="masukAdmin()">🔐 Admin</button>
+</header>
+<div class="wrap">
+  <div class="map">
+    <div class="legend">
+      <span><i style="background:#86efac"></i>Tersedia</span>
+      <span><i style="background:#fde68a"></i>Booking</span>
+      <span><i style="background:#fecaca"></i>Terjual</span>
+    </div>
+    <div id="peta"><div class="empty">Memuat data...</div></div>
+  </div>
+  <div class="detail" id="detail"><div class="empty">Pilih kavling yang tersedia pada peta.</div></div>
+</div>
+<div class="modal" id="modal"><div class="box" id="boxSim"></div></div>
+<div class="modal" id="modalAdm"><div class="box lebar" id="boxAdm"></div></div>
+
+<script>
+// ====== ISI DUA BARIS INI DARI SUPABASE (Project Settings > API) ======
+const SUPABASE_URL = "https://yppcaezbwohcjscyfjfe.supabase.co";
+const SUPABASE_KEY = "sb_publishable_8GgibV_OFIXVf2Xr3PGcQg_BdJOmT86";
+// ======================================================================
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const rupiah = n => "Rp " + Math.round(n||0).toLocaleString("id-ID");
+const v = id => document.getElementById(id).value;
+let db = {setting:{nama:"",bunga:8.5,dp:10}, tipe:{}, kavling:[]};
+let aktif=null, tabAktif="kavling", editId=null;
+
+async function muat(){
+  const [s,t,k] = await Promise.all([
+    sb.from("pengaturan").select("*").eq("id",1).single(),
+    sb.from("tipe").select("*").order("kode"),
+    sb.from("kavling").select("*")
+  ]);
+  if(s.error||t.error||k.error){
+    document.getElementById("peta").innerHTML='<div class="empty">Gagal memuat data. Periksa URL dan key Supabase.</div>';
+    return;
+  }
+  db.setting=s.data; db.tipe={}; t.data.forEach(x=>db.tipe[x.kode]=x); db.kavling=k.data;
+  gambarPeta();
+}
+
+// ===== PETA PUBLIK =====
+function gambarPeta(){
+  document.getElementById("jdl").textContent="🏡 Siteplan Perumahan "+(db.setting.nama||"");
+  const peta=document.getElementById("peta"); peta.innerHTML="";
+  const bloks=[...new Set(db.kavling.map(k=>k.blok))].sort();
+  if(!bloks.length) peta.innerHTML='<div class="empty">Belum ada data kavling.</div>';
+  bloks.forEach((b,idx)=>{
+    const div=document.createElement("div");div.className="blok";
+    div.innerHTML=`<h3>Blok ${b}</h3><div class="row"></div>`;
+    const row=div.querySelector(".row");
+    db.kavling.filter(k=>k.blok===b).sort((x,y)=>x.no-y.no).forEach(k=>{
+      const el=document.createElement("div");
+      el.className="k "+k.status+(aktif&&aktif.id===k.id?" aktif":"");
+      el.innerHTML=`${k.no}<small>${k.status}</small>`;
+      if(k.status==="tersedia") el.onclick=()=>pilih(k.id);
+      row.appendChild(el);
+    });
+    peta.appendChild(div);
+    if(idx<bloks.length-1){const r=document.createElement("div");r.className="road";r.textContent="JALAN UTAMA";peta.appendChild(r);}
+  });
+}
+function pilih(id){
+  aktif=db.kavling.find(k=>k.id===id); gambarPeta();
+  const t=db.tipe[aktif.tipe]||{lt:"-",lb:"-",kt:"-",km:"-",listrik:"-",foto:""};
+  document.getElementById("detail").innerHTML=`
+    <img src="${aktif.foto||t.foto||""}" alt="Foto rumah ${id}">
+    <h2>Kavling No. ${aktif.no} (Blok ${aktif.blok})</h2>
+    <div class="info">Tipe: <b>${aktif.tipe}</b><br>
+      Luas tanah: ${t.lt} m² | Luas bangunan: ${t.lb} m²<br>
+      Kamar tidur: ${t.kt} | Kamar mandi: ${t.km}<br>
+      Listrik: ${t.listrik} | Sertifikat: SHM</div>
+    <div class="harga">
+      <div>Harga Cash<b>${rupiah(aktif.cash)}</b></div>
+      <div>Harga KPR<b>${rupiah(aktif.kpr)}</b></div>
+    </div>
+    <button onclick="bukaSim()">🧮 Simulasi KPR</button>`;
+}
+
+// ===== SIMULASI =====
+function bukaSim(){
+  const {dp,bunga}=db.setting, plafon=aktif.kpr*(1-dp/100);
+  document.getElementById("boxSim").innerHTML=`
+    <h2>Simulasi KPR</h2>
+    <div class="baris"><span>No. Kavling</span><b>${aktif.no}</b></div>
+    <div class="baris"><span>Harga KPR</span><b>${rupiah(aktif.kpr)}</b></div>
+    <div class="baris"><span>Uang muka (${dp}%)</span><b>${rupiah(aktif.kpr*dp/100)}</b></div>
+    <div class="baris"><span>Plafon KPR</span><b>${rupiah(plafon)}</b></div>
+    <label>Pilih Tenor</label>
+    <select id="tenor" onchange="hitung()">
+      <option value="">-- pilih tenor --</option>
+     ${Array.from({length:20},(_,i)=>i+1).map(t=>`<option value="${t}">${t} tahun</option>`).join("")}
+    </select>
+    <div id="hasil"></div>
+    <p class="note">Estimasi bunga ${bunga}% per tahun (anuitas). Angka sebenarnya mengikuti kebijakan bank.</p>
+    <button class="abu" onclick="tutup()">Tutup</button>`;
+  document.getElementById("modal").classList.add("show");
+}
+function hitung(){
+  const th=+v("tenor"), out=document.getElementById("hasil");
+  if(!th){out.innerHTML="";return}
+  const P=aktif.kpr*(1-db.setting.dp/100), r=db.setting.bunga/100/12, n=th*12;
+  const a=r===0?P/n:P*r/(1-Math.pow(1+r,-n));
+  out.innerHTML=`<div class="hasil">Angsuran per bulan (${th} tahun)<b>${rupiah(a)}</b></div>`;
+}
+function tutup(){document.getElementById("modal").classList.remove("show")}
+document.getElementById("modal").onclick=e=>{if(e.target.id==="modal")tutup()};
+
+// ===== LOGIN ADMIN (Supabase Auth) =====
+async function masukAdmin(){
+  const {data}=await sb.auth.getSession();
+  if(data.session){tabAktif="kavling";editId=null;renderAdmin();document.getElementById("modalAdm").classList.add("show");return}
+  document.getElementById("boxAdm").className="box";
+  document.getElementById("boxAdm").innerHTML=`<h2>Login Admin</h2>
+    <label>Email</label><input id="em" type="email">
+    <label>Password</label><input id="pw" type="password" onkeydown="if(event.key==='Enter')login()">
+    <button style="margin-top:14px" onclick="login()">Masuk</button>
+    <button class="abu" onclick="tutupAdmin()">Batal</button>`;
+  document.getElementById("modalAdm").classList.add("show");
+}
+async function login(){
+  const {error}=await sb.auth.signInWithPassword({email:v("em"),password:v("pw")});
+  if(error){alert("Login gagal: "+error.message);return}
+  document.getElementById("boxAdm").className="box lebar";
+  tabAktif="kavling";editId=null;renderAdmin();
+}
+async function keluar(){await sb.auth.signOut();tutupAdmin()}
+function tutupAdmin(){document.getElementById("modalAdm").classList.remove("show");aktif=null;
+  document.getElementById("detail").innerHTML='<div class="empty">Pilih kavling yang tersedia pada peta.</div>';gambarPeta()}
+
+// ===== PANEL ADMIN =====
+function tab(t){tabAktif=t;editId=null;fotoUrl="";renderAdmin()}
+function renderAdmin(){
+  document.getElementById("boxAdm").className="box lebar";
+  const T=[["kavling","Kavling"],["tipe","Tipe Rumah"],["set","Pengaturan"]];
+  let h=`<h2>Panel Admin</h2><div class="tabs">${T.map(([k,n])=>`<button class="${tabAktif===k?"on":""}" onclick="tab('${k}')">${n}</button>`).join("")}
+    <button class="abu" style="margin:0 0 0 auto" onclick="tutupAdmin()">Tutup</button>
+    <button class="merah" onclick="keluar()">Logout</button></div>`;
+  h+= tabAktif==="kavling"?viewKavling():tabAktif==="tipe"?viewTipe():viewSet();
+  document.getElementById("boxAdm").innerHTML=h;
+}
+let fotoUrl="";
+async function unggah(inp){
+  const f=inp.files[0]; if(!f)return;
+  const path=Date.now()+"_"+f.name.replace(/[^\w.]/g,"_");
+  const {error}=await sb.storage.from("foto").upload(path,f);
+  if(error){alert("Upload gagal: "+error.message);return}
+  fotoUrl=sb.storage.from("foto").getPublicUrl(path).data.publicUrl;
+  const p=document.getElementById("prev");p.src=fotoUrl;p.style.display="block";
+}
+function cek(error){if(error){alert("Gagal: "+error.message);return false}return true}
+
+// --- Kavling ---
+function viewKavling(){
+  const e=db.kavling.find(k=>k.id===editId)||{blok:"",no:"",tipe:Object.keys(db.tipe)[0]||"",cash:"",kpr:"",status:"tersedia",foto:""};
+  const opsiTipe=sel=>Object.keys(db.tipe).map(t=>`<option ${sel===t?"selected":""}>${t}</option>`).join("");
+  const opsiSt=sel=>["tersedia","booking","terjual"].map(s=>`<option ${sel===s?"selected":""}>${s}</option>`).join("");
+  return `<h3>${editId?"Edit kavling "+editId:"Tambah kavling"}</h3>
+  <div class="grid">
+    <div><label>Blok</label><input id="fb" value="${e.blok}" placeholder="A"></div>
+    <div><label>Nomor</label><input id="fn" type="number" value="${e.no}"></div>
+    <div><label>Tipe</label><select id="ft">${opsiTipe(e.tipe)}</select></div>
+    <div><label>Status</label><select id="fs">${opsiSt(e.status)}</select></div>
+    <div><label>Harga Cash</label><input id="fc" type="number" value="${e.cash}"></div>
+    <div><label>Harga KPR</label><input id="fk" type="number" value="${e.kpr}"></div>
+  </div>
+  <label>Foto khusus kavling (opsional, kosong = pakai foto tipe)</label>
+  <input type="file" accept="image/*" onchange="unggah(this)">
+  <img class="fprev" id="prev" src="${e.foto||""}" style="${e.foto?"":"display:none"}">
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button onclick="simpanKavling()">${editId?"Simpan Perubahan":"Tambah Kavling"}</button>
+    ${editId?`<button class="abu" style="margin-top:0" onclick="editId=null;fotoUrl='';renderAdmin()">Batal</button>`:""}
+  </div>
+  <hr style="margin:16px 0;border:0;border-top:1px solid #e2e8f0">
+  <h3>Tambah banyak sekaligus</h3>
+  <div class="grid">
+    <div><label>Blok</label><input id="mb" placeholder="D"></div>
+    <div><label>Jumlah</label><input id="mj" type="number"></div>
+    <div><label>Tipe</label><select id="mt">${opsiTipe("")}</select></div>
+    <div><label>Harga Cash</label><input id="mc" type="number"></div>
+    <div><label>Harga KPR</label><input id="mk" type="number"></div>
+  </div>
+  <button style="margin-top:10px" onclick="tambahMassal()">Buat Kavling Massal</button>
+  <div class="tbox"><table class="tbl"><tr><th>ID</th><th>Tipe</th><th>Cash</th><th>KPR</th><th>Status</th><th>Aksi</th></tr>
+  ${db.kavling.slice().sort((a,b)=>a.blok.localeCompare(b.blok)||a.no-b.no).map(k=>`<tr><td>${k.id}</td><td>${k.tipe}</td><td>${rupiah(k.cash)}</td><td>${rupiah(k.kpr)}</td>
+  <td><select onchange="ubahStatus('${k.id}',this.value)">${opsiSt(k.status)}</select></td>
+  <td><button class="mini" onclick="editId='${k.id}';fotoUrl='';renderAdmin()">Edit</button><button class="mini merah" onclick="hapusKavling('${k.id}')">Hapus</button></td></tr>`).join("")}
+  </table></div>`;
+}
+async function simpanKavling(){
+  const blok=v("fb").trim().toUpperCase(), no=parseInt(v("fn"));
+  if(!blok||!no){alert("Blok dan nomor wajib diisi");return}
+  const id=blok+no, lama=db.kavling.find(k=>k.id===editId);
+  if(id!==editId&&db.kavling.some(k=>k.id===id)){alert("Kavling "+id+" sudah ada");return}
+  const data={id,blok,no,tipe:v("ft"),cash:+v("fc"),kpr:+v("fk"),status:v("fs"),foto:fotoUrl||(lama?lama.foto:"")||""};
+  const {error}=lama?await sb.from("kavling").update(data).eq("id",editId):await sb.from("kavling").insert(data);
+  if(!cek(error))return;
+  editId=null;fotoUrl="";await muat();renderAdmin();
+}
+async function tambahMassal(){
+  const b=v("mb").trim().toUpperCase(),j=parseInt(v("mj"));
+  if(!b||!j){alert("Isi blok dan jumlah");return}
+  const mulai=Math.max(0,...db.kavling.filter(k=>k.blok===b).map(k=>k.no))+1, baris=[];
+  for(let i=0;i<j;i++)baris.push({id:b+(mulai+i),blok:b,no:mulai+i,tipe:v("mt"),cash:+v("mc"),kpr:+v("mk"),status:"tersedia",foto:""});
+  const {error}=await sb.from("kavling").insert(baris);
+  if(!cek(error))return; await muat();renderAdmin();
+}
+async function ubahStatus(id,s){
+  const {error}=await sb.from("kavling").update({status:s}).eq("id",id);
+  if(cek(error)){db.kavling.find(k=>k.id===id).status=s}
+}
+async function hapusKavling(id){
+  if(!confirm("Hapus kavling "+id+"?"))return;
+  const {error}=await sb.from("kavling").delete().eq("id",id);
+  if(cek(error)){await muat();renderAdmin()}
+}
+
+// --- Tipe ---
+function viewTipe(){
+  const e=db.tipe[editId]||{lt:"",lb:"",kt:"",km:"",listrik:"",foto:""};
+  return `<h3>${editId?"Edit tipe "+editId:"Tambah tipe rumah"}</h3>
+  <div class="grid">
+    <div><label>Kode tipe</label><input id="tk" value="${editId||""}" ${editId?"readonly":""} placeholder="54/90"></div>
+    <div><label>Luas tanah (m²)</label><input id="tlt" type="number" value="${e.lt}"></div>
+    <div><label>Luas bangunan (m²)</label><input id="tlb" type="number" value="${e.lb}"></div>
+    <div><label>Kamar tidur</label><input id="tkt" type="number" value="${e.kt}"></div>
+    <div><label>Kamar mandi</label><input id="tkm" type="number" value="${e.km}"></div>
+    <div><label>Listrik</label><input id="tl" value="${e.listrik}" placeholder="2200 VA"></div>
+  </div>
+  <label>Foto rumah</label>
+  <input type="file" accept="image/*" onchange="unggah(this)">
+  <img class="fprev" id="prev" src="${e.foto||""}" style="${e.foto?"":"display:none"}">
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button onclick="simpanTipe()">${editId?"Simpan Perubahan":"Tambah Tipe"}</button>
+    ${editId?`<button class="abu" style="margin-top:0" onclick="editId=null;fotoUrl='';renderAdmin()">Batal</button>`:""}
+  </div>
+  <table class="tbl"><tr><th>Tipe</th><th>LT/LB</th><th>KT/KM</th><th>Listrik</th><th>Aksi</th></tr>
+  ${Object.entries(db.tipe).map(([k,t])=>`<tr><td>${k}</td><td>${t.lt}/${t.lb}</td><td>${t.kt}/${t.km}</td><td>${t.listrik}</td>
+  <td><button class="mini" onclick="editId='${k}';fotoUrl='';renderAdmin()">Edit</button><button class="mini merah" onclick="hapusTipe('${k}')">Hapus</button></td></tr>`).join("")}</table>`;
+}
+async function simpanTipe(){
+  const k=v("tk").trim(); if(!k){alert("Kode tipe wajib diisi");return}
+  if(!editId&&db.tipe[k]){alert("Tipe sudah ada");return}
+  const lama=db.tipe[k]||{};
+  const data={kode:k,lt:+v("tlt"),lb:+v("tlb"),kt:+v("tkt"),km:+v("tkm"),listrik:v("tl"),foto:fotoUrl||lama.foto||""};
+  const {error}=await sb.from("tipe").upsert(data);
+  if(!cek(error))return; editId=null;fotoUrl="";await muat();renderAdmin();
+}
+async function hapusTipe(k){
+  if(db.kavling.some(x=>x.tipe===k)){alert("Tipe masih dipakai kavling, ubah kavlingnya dulu");return}
+  if(!confirm("Hapus tipe "+k+"?"))return;
+  const {error}=await sb.from("tipe").delete().eq("kode",k);
+  if(cek(error)){await muat();renderAdmin()}
+}
+
+// --- Pengaturan ---
+function viewSet(){const s=db.setting;return `<h3>Pengaturan</h3>
+  <div class="grid">
+    <div><label>Nama perumahan</label><input id="sn" value="${s.nama}"></div>
+    <div><label>Bunga KPR (% per tahun)</label><input id="sb" type="number" step="0.01" value="${s.bunga}"></div>
+    <div><label>Uang muka (%)</label><input id="sd" type="number" step="0.1" value="${s.dp}"></div>
+  </div><button style="margin-top:12px" onclick="simpanSet()">Simpan Pengaturan</button>
+  <p class="note">Password admin diganti lewat dashboard Supabase (Authentication > Users).</p>`}
+async function simpanSet(){
+  const {error}=await sb.from("pengaturan").update({nama:v("sn"),bunga:+v("sb"),dp:+v("sd")}).eq("id",1);
+  if(cek(error)){alert("Tersimpan");await muat()}
+}
+
+muat();
+</script>
+</body>
+</html>
